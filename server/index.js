@@ -38,19 +38,109 @@ async function run() {
 }
 run();
 
-app.get('/', async (req, res) => {
-	try {
-		await client.connect();
-		console.log('Connected to MongoDB');
+//Список и количесво авто каждой марки
+app.get('/brands', async (req, res) => {
+  try {
+    await client.connect();
+    const collection = client.db(`${DB_NAME}`).collection("stock");
 
-		const database = client.db('hrTest');
-		const collection = database.collection('stock');
-		const data = await collection.find({}).toArray();
-		res.json(data);
-	} catch (err) {
-		console.error(err);
-		res.status(500).send('Error connecting to the database or performing the operation')
-	} finally {
-		await client.close();
-	}
+    const brandsAggregation = [
+      {
+        $group: {
+          _id: "$mark",
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          mark: "$_id",
+          count: 1
+        }
+      },
+      { $sort : { mark : 1 } }
+    ];
+
+    const brands = await collection.aggregate(brandsAggregation).toArray();
+    res.json(brands);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  } finally {
+    await client.close();
+  }
+});
+
+//Список авто в зависимости от выбранной марки
+app.get('/models/:brand', async (req, res) => {
+  const brand = req.params.brand;
+  try {
+    await client.connect();
+    const collection = client.db(`${DB_NAME}`).collection("stock");
+
+    const modelsAggregation = [
+      {
+        $match: {
+          mark: brand
+        }
+      },
+      {
+        $group: {
+          _id: "$model"
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          model: "$_id"
+        }
+      },
+      { $sort : { model : 1 } }
+    ];
+
+    const models = await collection.aggregate(modelsAggregation).toArray();
+    res.json(models);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  } finally {
+    await client.close();
+  }
+});
+
+//Фильтрация
+app.get('/stock', async (req, res) => {
+  const { mark, model } = req.query;
+  let { page, limit } = req.query;
+
+  //Значения по умолчанию для пагинации
+  page = page ? parseInt(page, 10) : 1;
+  limit = limit ? parseInt(limit, 10) : 20;
+
+  const skip = (page - 1) * limit;
+
+  try {
+    await client.connect();
+    const collection = client.db(`${DB_NAME}`).collection("stock");
+
+    //Фильтрация: объект фильтра в зависимости от переданных параметров
+    let filter = {};
+    if (mark) filter.mark = mark;
+    if (model) filter['model'] = model;
+
+    const cars = await collection.find(filter).skip(skip).limit(limit).toArray();
+
+    //Общее количество автомобилей, соответствующих фильтрам
+    const count = await collection.countDocuments(filter);
+
+    res.json({
+      currentPage: page,
+      totalPages: Math.ceil(count / limit),
+      totalCount: count,
+      data: cars
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    await client.close();
+  }
 });
