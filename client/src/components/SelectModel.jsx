@@ -16,7 +16,8 @@ function SelectModel({ selectedBrand }) {
   }, [selectedBrand]);
 
   return (
-    <Select
+		<Select
+			mode="multiple"
       showSearch
       style={{ width: 200 }}
       placeholder="Выберите модель"
