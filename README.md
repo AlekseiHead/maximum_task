@@ -24,3 +24,8 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 In the client project directory, you can run:
 
 ### `npm start`
+
+## Demonstration
+| Изображение | Описание |
+| :-: | :---  |
+| <img src="client/public/images/main_page.png" alt="Main page" width="350"/> | Основная страница |
